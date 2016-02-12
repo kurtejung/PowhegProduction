@@ -4,6 +4,7 @@
 #include "Rivet/Tools/Logging.hh"
 #include "Rivet/Projections/FinalState.hh"
 #include "Rivet/Projections/FastJets.hh"
+#include "Rivet/Projections/HeavyHadrons.hh"
 #include "Rivet/Tools/BinnedHistogram.hh"
 
 namespace Rivet {
@@ -19,6 +20,9 @@ namespace Rivet {
             BinnedHistogram<double> _hist_sum_AK3;
             BinnedHistogram<double> _hist_sum_AK5;
             BinnedHistogram<double> _hist_sum_AK7;
+            
+            BinnedHistogram<double> _hist_sum_AK3_2p76Binning;
+            BinnedHistogram<double> _hist_sum_AK4_7Binning;
 
         public:
 
@@ -55,6 +59,7 @@ namespace Rivet {
                 addProjection(FastJets(fs, FastJets::ANTIKT, 0.3), "JetsAK3");
                 addProjection(FastJets(fs, FastJets::ANTIKT, 0.5), "JetsAK5");
                 addProjection(FastJets(fs, FastJets::ANTIKT, 0.7), "JetsAK7");
+                addProjection(HeavyHadrons(-3.5,3.5, 5*GeV), "BHadrons");
 
                 //_h_spectra_ak3 = bookHistogram1D(1, 1, 1);
                 //_h_spectra_ak5 = bookHistogram1D(2, 1, 1);
@@ -63,19 +68,22 @@ namespace Rivet {
                 _hist_sigma_AK3.addHistogram(0.5,1.0, bookHistogram1D(2,1,1));
                 _hist_sigma_AK3.addHistogram(1.0,1.5, bookHistogram1D(3,1,1));
                 _hist_sigma_AK3.addHistogram(1.5,2.0, bookHistogram1D(4,1,1));
-                _hist_sum_AK3.addHistogram(0.0,2.4, bookHistogram1D(5,1,1));
+                _hist_sum_AK3.addHistogram(0.0,2.0, bookHistogram1D(5,1,1));
 
                 _hist_sigma_AK5.addHistogram(0.0,0.5, bookHistogram1D(6,1,1));
                 _hist_sigma_AK5.addHistogram(0.5,1.0, bookHistogram1D(7,1,1));
                 _hist_sigma_AK5.addHistogram(1.0,1.5, bookHistogram1D(8,1,1));
                 _hist_sigma_AK5.addHistogram(1.5,2.0, bookHistogram1D(9,1,1));
-                _hist_sum_AK5.addHistogram(0.0,2.4, bookHistogram1D(10,1,1));
+                _hist_sum_AK5.addHistogram(0.0,2.0, bookHistogram1D(10,1,1));
 
                 _hist_sigma_AK7.addHistogram(0.0,0.5, bookHistogram1D(11,1,1));
                 _hist_sigma_AK7.addHistogram(0.5,1.0, bookHistogram1D(12,1,1));
                 _hist_sigma_AK7.addHistogram(1.0,1.5, bookHistogram1D(13,1,1));
                 _hist_sigma_AK7.addHistogram(1.5,2.0, bookHistogram1D(14,1,1));
-                _hist_sum_AK7.addHistogram(0.0,2.4, bookHistogram1D(15,1,1));
+                _hist_sum_AK7.addHistogram(0.0,2.0, bookHistogram1D(15,1,1));
+
+                _hist_sum_AK3_2p76Binning.addHistogram(0.0,2.0, bookHistogram1D(16,1,1));
+                _hist_sum_AK3_7Binning.addHistogram(0.0,2.1, bookHistogram1D(17,1,1));
 
             }
 
@@ -108,7 +116,7 @@ namespace Rivet {
                 const Jets jetsAK5 = applyProjection<FastJets>(event,"JetsAK5").jets(10*GeV);
                 const Jets jetsAK7 = applyProjection<FastJets>(event,"JetsAK5").jets(10*GeV);
 
-
+                const Particles& bHadrons = applyProjection<HeavyHadrons>(event, "BHadrons").bHadrons();
                 //const PseudoJets& psjetsAK3 = applyProjection<FastJets>(event, "JetsAK3").pseudoJetsByPt( 1.0*GeV );
                 //const PseudoJets& psjetsAK5 = applyProjection<FastJets>(event, "JetsAK5").pseudoJetsByPt( 1.0*GeV );
                 // ... and fill the histograms
@@ -143,6 +151,20 @@ namespace Rivet {
                     }
                 }
 
+                foreach(const Jet &j, jetsAK3){
+                    if(j.containsBottom()){
+                        _hist_sum_AK3_2p76Binning.fill(fabs(j.momentum().rapidity()), j.momentum().pT(), weight);
+                    }
+                }
+                bool hasB=false;
+                foreach(const Jet &j, jetsAK4){
+                    foreach (const Particle& b, bHadrons)
+                        if (deltaR(j, b) < 0.3) { hasB = true; break; }
+
+                    if(j.absrap()<2.1 && hasB) _hist_sum_AK4_7Binning.fill(fabs(j.absrap()), j.pT()/GeV, weight);
+                    }
+                }
+
             }
 
 
@@ -158,6 +180,9 @@ namespace Rivet {
                 _hist_sum_AK3.scale(crossSection()/sumOfWeights()/2., this);
                 _hist_sum_AK5.scale(crossSection()/sumOfWeights()/2., this);
                 _hist_sum_AK7.scale(crossSection()/sumOfWeights()/2., this);
+                _hist_sum_AK3_2p76Binning.scale(crossSection()/sumOfWeights()/2., this);
+                const double xsec = crossSectionPerEvent()/(picobarn);
+                _hist_sum_AK3_7Binning.scale(xsec/2, this);
 
             }
 
